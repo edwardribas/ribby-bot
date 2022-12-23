@@ -1,5 +1,8 @@
-const axios = require('axios');
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+
+const errors = {
+    404: "Nenhum usuário foi encontrado com este nome!"
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -16,9 +19,18 @@ module.exports = {
         const [{value: userArgument}] = arguments;
 
         try {
+            const embed = new EmbedBuilder();
             const response = await fetch(`https://api.github.com/users/${userArgument}`);
-            const data = await response.json();
 
+            if (response.status !== 200) {
+                embed.setColor('Red');
+                embed.setTitle('Ocorreu um erro!');
+                embed.setDescription(errors[response.status]);
+                await interaction.reply({embeds: [embed]});
+                return;
+            };
+
+            const data = await response.json();
             const {
                 html_url: link,
                 followers,
@@ -30,18 +42,18 @@ module.exports = {
             } = data;
 
             const creation = new Date(created_at).toLocaleDateString('pt-br');
-            const embed = new EmbedBuilder();
-            embed.setDescription('Essas são as informações que eu encontrei deste usuário:');
+            embed.setDescription(' ');
             embed.setTitle(`Informações sobre ${user}`)
-            embed.setImage(avatar_url);
+            embed.setThumbnail(avatar_url);
             embed.setFields([
                 {name: 'Repositórios públicos', value: String(repos)},
                 {name: 'Criação da conta', value: creation},
                 {name: 'Seguidores', value: String(followers)},
                 {name: 'Seguindo', value: String(following)},
             ]);
-            embed.setURL(link)
-            embed.setColor('Orange');
+            embed.setTimestamp();
+            embed.setURL(link);
+            embed.setColor('Green');
             
             embed.setFooter({
                 text: `Enviado a pedido de ${interaction.user.username}`,
