@@ -7,7 +7,9 @@ const { Player } = require('discord-player');
 const client = new Client({
 	intents: [
 		GatewayIntentBits.Guilds,
-		GatewayIntentBits.GuildVoiceStates
+		GatewayIntentBits.GuildVoiceStates,
+		GatewayIntentBits.MessageContent,
+		GatewayIntentBits.GuildMessages
 	]
 });
 
@@ -65,7 +67,10 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.on("messageCreate", (message) => {
-    console.log({message});
+	const containsRibby = message.content.toLowerCase().match(/ribby/g) && message.content.toLowerCase().match(/ribby/g).length !== 0;
+	if (message.guildId === '946460608251957388' && message.author.id === '366582685310910464' && containsRibby) {
+		return message.reply('Olha meu chefão aí!')
+	}
 });
 
 client.player.on('trackStart', (guild) => {
