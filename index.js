@@ -64,6 +64,10 @@ client.on('interactionCreate', async interaction => {
 	}
 });
 
+client.on("messageCreate", (message) => {
+    console.log({message});
+});
+
 client.player.on('trackStart', (guild) => {
 	if (client.player.showNowPlaying) {
 		const embed = new EmbedBuilder();
