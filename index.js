@@ -1,16 +1,29 @@
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const { token } = require('./config.json');
-const fs = require('fs');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
 const path = require('path');
+const fs = require('fs');
+const { token } = require('./config.json');
+const { Player } = require('discord-player');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+	intents: [
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildVoiceStates
+	]
+});
+
 client.commands = new Collection();
+client.player = new Player(client, {
+	showNowPlaying: false,
+	ytdlOptions: {
+        quality: "highestaudio",
+        highWaterMark: 1 << 25
+	}
+});
 
 const commandsPath = path.join(__dirname, 'commands');
 const commandsFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+const embed = new EmbedBuilder();
 
-// Mapeia cada arquivo encontrado no diretório de comandos e adiciona à coleção
-// de comandos do objeto client.
 for (const file of commandsFiles) {
 	const filePath = path.join(commandsPath, file);
 	const command = require(filePath);
@@ -22,25 +35,51 @@ for (const file of commandsFiles) {
 	}
 }
 
-// Notifica que o bot já está ligado.
 client.on('ready', () => {
-  	console.log(`Logged in as ${client.user.tag}!`);
+  	console.log(``);
+  	console.log(`${client.user.tag} agora está logado - ${new Date().toLocaleString('pt-br')}`);
+  	console.log(``);
 });
 
-// Interação criada pelo usuário
 client.on('interactionCreate', async interaction => {
-	if (!interaction.isChatInputCommand()) return;
+	if (!interaction.isChatInputCommand() || interaction.hasReplied) return;
 
 	const command = interaction.client.commands.get(interaction.commandName);
 	if (!command)
-		throw new Error(`The command ${interaction.commandName} couldn't be found.`);
+		return await interaction.reply({embeds: [embed
+			.setColor('red')
+			.setTitle('Comando inexistente.')
+			.setDescription(`O comando **${interaction.commandName}** não foi encontrado.`)
+		]})
 
 	try {
 		await command.execute(interaction);
 	} catch(err) {
 		console.error(err);
-		await interaction.reply({content: 'An error ocurred and I couldn\'t process your command.'})
+		await interaction.reply({embeds: [embed
+			.setColor('Red')
+			.setTitle('Algo deu errado.')
+			.setDescription('Ocorreu um erro e não foi possível executar o seu comando.')
+		]})
 	}
 });
+
+client.player.on('trackStart', (guild) => {
+	if (client.player.showNowPlaying) {
+		const embed = new EmbedBuilder();
+		const guildId = guild.metadata.channel.guild.id;
+		const queueChannel = guild.metadata.channel;
+		const currentSong = client.player.getQueue(guildId).current;
+		queueChannel.send({embeds: [embed
+			.setColor('Greyple')
+			.setTitle(`Reproduzindo ${currentSong.title}`)
+			.setDescription(`${currentSong.requestedBy} escolheu essa música.\n`)
+			.setFooter({text: `Duração: ${currentSong.duration}`})
+			.setURL(currentSong.url)
+			.setThumbnail(currentSong.thumbnail)
+		]})
+	}
+});
+
 
 client.login(token);
