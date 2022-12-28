@@ -14,6 +14,12 @@ module.exports = {
         const { client } = interaction;
         const embed = new EmbedBuilder();
         const queue = client.player.getQueue(interaction.guildId);
+        const requestedDuration = interaction.options.data[0].value.trim();
+        const requestedDurationColons = [...requestedDuration.matchAll(/:/g)].length;
+		const durationInArray = requestedDuration.split(":");
+        const areEntriesValid = durationInArray.filter(d => !isNaN(d)).length === durationInArray.length;
+		const hasDurationHours = durationInArray.length === 2;
+		let newPositionInMS, description;
 
         if (!queue || !queue.playing)
             return await interaction.reply({embeds: [embed
@@ -28,26 +34,16 @@ module.exports = {
                 .setTitle('Não foi possível continuar.')
                 .setDescription(`Você precisa estar no mesmo canal de voz que o bot (${queue.connection.channel}) para utilizar este comando.`)
             ]})
-        
-        const requestedDuration = interaction.options.data[0].value.trim();
-        const currentSongDuration = queue.current.duration;
 
-        const requestedDurationColonHouses = [...requestedDuration.matchAll(/:/g)].length;
-        const currentSongDurationColonHouses = [...currentSongDuration.matchAll(/:/g)].length;
-        const areDurationEqual = requestedDurationColonHouses === currentSongDurationColonHouses;
-
-        if (requestedDurationColonHouses <= 0 || requestedDurationColonHouses > 2)
+        if (requestedDurationColons !== 1 || requestedDurationColons !== 2)
             return await interaction.reply({embeds: [embed
                 .setColor('Red')
                 .setTitle('Formatação inválida.')
                 .setDescription('Verifique se você está utilizando o formato certo: **MM:SS** ou **HH:MM:SS** em vídeos com mais de 1 hora.')
             ]})
 
-        const durationArray = requestedDuration.split(":");
-        const areEntriesValid = durationArray.filter(d => !isNaN(d)).length === durationArray.length
-        
 		if (!areEntriesValid) {
-			const invalidEntries = durationArray.filter(d => isNaN(d));
+			const invalidEntries = durationInArray.filter(d => isNaN(d));
 			const values = invalidEntries.map((e, i) => 
 				!(i === invalidEntries.length-1 && i !== 0) ? ` **${e}**${invalidEntries.length >= 2 ? ',' : ''}` : ` e **${e}**`
 			).join();
@@ -59,16 +55,18 @@ module.exports = {
 			]})
 		}
 
+        const currentSongDuration = queue.current.duration;
 		const currentSongDurationArray = currentSongDuration.split(':');
 
-		if (durationArray.length === 2) {
-			const [minutes, seconds] = durationArray.map(e => Number(e));
+		if (!hasDurationHours) {
+			const [minutes, seconds] = durationInArray.map(e => Number(e));
 			const oldHours = currentSongDurationArray[0];
 			const oldMinutes = oldHours ? +currentSongDurationArray[1] : +currentSongDurationArray[0];
 			const oldSeconds = oldHours ? +currentSongDurationArray[2] : +currentSongDurationArray[1];
-			
 			const minutesInSeconds = minutes * 60;
 			const oldMinutesInSeconds = oldMinutes * 60;
+			const oldPositionInMS = (oldHours ? ((oldHours*3600) + oldMinutesInSeconds + oldSeconds) : (oldMinutesInSeconds + oldSeconds))*1000;
+			newPositionInMS = (minutesInSeconds + seconds)*1000;
 
 			if (minutes > 59 || seconds > 59 || seconds < 0 || minutes < 0)
 				return await interaction.reply({embeds: [embed
@@ -76,9 +74,6 @@ module.exports = {
 					.setTitle('Tempo inválido!')
 					.setDescription('Os minutos e segundos precisam ser menores do que 60 e maiores que 0.')
 				]})
-
-			const newPositionInMS = (minutesInSeconds + seconds)*1000;
-			const oldPositionInMS = (oldHours ? ((oldHours*3600) + oldMinutesInSeconds + oldSeconds) : (oldMinutesInSeconds + oldSeconds))*1000;
 			
 			if (newPositionInMS >= oldPositionInMS)
 				return await interaction.reply({embeds: [embed
@@ -87,22 +82,16 @@ module.exports = {
 					.setDescription('A nova posição não pode ser maior que a duração da música atual.')
 				]})
 
-			await queue.seek(newPositionInMS);
-			return await interaction.reply({embeds: [embed
-				.setColor('Green')
-				.setTitle('Nova posição definida.')
-				.setDescription(`Posição da música alterada para \`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}\`.`)
-			]})
-		}
-
-		if (durationArray.length === 3) {
-			const [hours, minutes, seconds] = durationArray.map(e => Number(e));
+			description = `Posição da música alterada para \`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}\`.`
+		} else {
+			const [hours, minutes, seconds] = durationInArray.map(e => Number(e));
 			const [oldHours, oldMinutes, oldSeconds] = currentSongDurationArray.map(e => Number(e));
-
 			const hoursInSeconds = hours * 3600;
 			const minutesInSeconds = minutes * 60;
 			const oldHoursInSeconds = oldHours * 3600;
 			const oldMinutesInSeconds = oldMinutes * 60;
+			const oldPositionInMS = (oldHoursInSeconds + oldMinutesInSeconds + oldSeconds)*1000;
+			newPositionInMS = (hoursInSeconds + minutesInSeconds + seconds)*1000;
 
 			if (minutes > 59 || seconds > 59 || seconds < 0 || minutes < 0 || hours < 0)
 				return await interaction.reply({embeds: [embed
@@ -111,9 +100,6 @@ module.exports = {
 					.setDescription('Os minutos e segundos precisam ser menores do que 60 e maiores que 0. \n Como você usou o modelo de horas, a hora também precisa ser maior do que 0.')
 				]})
 
-			const newPositionInMS = (hoursInSeconds + minutesInSeconds + seconds)*1000;
-			const oldPositionInMS = (oldHoursInSeconds + oldMinutesInSeconds + oldSeconds)*1000;
-
 			if (newPositionInMS >= oldPositionInMS)
 				return await interaction.reply({embeds: [embed
 					.setColor('Red')
@@ -121,12 +107,14 @@ module.exports = {
 					.setDescription('A nova posição não pode ser maior que a duração da música atual.')
 				]})
 
-			await queue.seek(newPositionInMS);
-			return await interaction.reply({embeds: [embed
-				.setColor('Green')
-				.setTitle('Nova posição definida.') 
-				.setDescription(`Posição da música alterada para \`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}\`.`)
-			]})
+			description = `Posição da música alterada para \`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}\`.`
 		}
+
+		await queue.seek(newPositionInMS);
+		await interaction.reply({embeds: [embed
+			.setColor('Green')
+			.setTitle('Nova posição definida.') 
+			.setDescription(description)
+		]});
     }
 }

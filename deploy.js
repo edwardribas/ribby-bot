@@ -8,7 +8,9 @@ const commandFiles = fs.readdirSync(commandsDirectory).filter(file => file.endsW
 
 for (const file of commandFiles) {
 	const command = require(`${commandsDirectory}/${file}`);
-	commands.push(command.data.toJSON());
+	const commandData = command.data.toJSON();
+	if (!command.ignore)
+		commands.push(commandData);
 }
 
 const rest = new REST({ version: '10' }).setToken(token);

@@ -26,15 +26,6 @@ module.exports = {
                 .setDescription('URL da playlist que você quer reproduzir')
                 .setRequired(true)
             ),
-        )
-        .addSubcommand(sc => sc
-            .setName('nome')
-            .setDescription('Adiciona uma música à fila de reprodução.')
-            .addStringOption(option => option
-                .setName('nome')
-                .setDescription('Nome da música que você quer reproduzir')
-                .setRequired(true)
-            ),
         ),
 
     async execute(interaction) {
@@ -42,7 +33,6 @@ module.exports = {
         const { client } = interaction;
         const subcommand = interaction.options.getSubcommand();
         const isSong = subcommand === "song";
-        const isName = subcommand === "nome";
         const isPause = subcommand === "pause";
 
         if (!interaction.member.voice.channel) {
@@ -96,9 +86,7 @@ module.exports = {
          
         const [{value: url}] = interaction.options.data[0].options;
         const isYoutube = url.search(/(youtube|yt\.be)/) !== -1;
-        const queryType = isSong ? (isYoutube ? QueryType.YOUTUBE_VIDEO : QueryType.SPOTIFY_SONG)
-                        : !isName ? (isYoutube ? QueryType.YOUTUBE_PLAYLIST : QueryType.SPOTIFY_PLAYLIST)
-                        : QueryType.AUTO;
+        const queryType = isSong ? QueryType.AUTO : (isYoutube ? QueryType.YOUTUBE_PLAYLIST : QueryType.SPOTIFY_PLAYLIST)
 
         const result = await client.player.search(url, {
             requestedBy: interaction.user,
@@ -114,7 +102,7 @@ module.exports = {
 
 
         let song;
-        if (isSong || isName) {
+        if (isSong) {
             song = result.tracks[0];
             await queue.addTrack(song);
         } else {
@@ -124,7 +112,7 @@ module.exports = {
         if (!queue.connection) await queue.connect(interaction.member.voice.channel)
         if (!queue.playing) await queue.play()
         
-        if (isSong || isName) {
+        if (isSong) {
             return await interaction.reply({embeds: [embed
                 .setColor('Green')
                 .setTitle(`Música adicionada com sucesso.`)
