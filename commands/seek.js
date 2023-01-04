@@ -18,7 +18,9 @@ module.exports = {
         const requestedDurationColons = [...requestedDuration.matchAll(/:/g)].length;
 		const durationInArray = requestedDuration.split(":");
         const areEntriesValid = durationInArray.filter(d => !isNaN(d)).length === durationInArray.length;
-		const hasDurationHours = durationInArray.length === 2;
+		const hasDurationHours = requestedDuration.match(':') && [...requestedDuration.matchAll(/:/g)].length === 2;
+		const currentSongDuration = (queue && queue.playing) && queue.current.duration;
+		const currentSongDurationArray = (queue && queue.playing) && currentSongDuration.split(':');
 		let newPositionInMS, description;
 
         if (!queue || !queue.playing)
@@ -35,7 +37,7 @@ module.exports = {
                 .setDescription(`Você precisa estar no mesmo canal de voz que o bot (${queue.connection.channel}) para utilizar este comando.`)
             ]})
 
-        if (requestedDurationColons !== 1 || requestedDurationColons !== 2)
+        if (requestedDurationColons < 0 || requestedDurationColons > 2)
             return await interaction.reply({embeds: [embed
                 .setColor('Red')
                 .setTitle('Formatação inválida.')
@@ -55,9 +57,6 @@ module.exports = {
 			]})
 		}
 
-        const currentSongDuration = queue.current.duration;
-		const currentSongDurationArray = currentSongDuration.split(':');
-
 		if (!hasDurationHours) {
 			const [minutes, seconds] = durationInArray.map(e => Number(e));
 			const oldHours = currentSongDurationArray[0];
@@ -66,6 +65,7 @@ module.exports = {
 			const minutesInSeconds = minutes * 60;
 			const oldMinutesInSeconds = oldMinutes * 60;
 			const oldPositionInMS = (oldHours ? ((oldHours*3600) + oldMinutesInSeconds + oldSeconds) : (oldMinutesInSeconds + oldSeconds))*1000;
+			description = `Posição da música alterada para \`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}\`.`;
 			newPositionInMS = (minutesInSeconds + seconds)*1000;
 
 			if (minutes > 59 || seconds > 59 || seconds < 0 || minutes < 0)
@@ -75,14 +75,14 @@ module.exports = {
 					.setDescription('Os minutos e segundos precisam ser menores do que 60 e maiores que 0.')
 				]})
 			
-			if (newPositionInMS >= oldPositionInMS)
+			if (newPositionInMS >= oldPositionInMS) {
 				return await interaction.reply({embeds: [embed
 					.setColor('Red')
 					.setTitle('Nova posição inválida.')
 					.setDescription('A nova posição não pode ser maior que a duração da música atual.')
 				]})
+			}
 
-			description = `Posição da música alterada para \`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}\`.`
 		} else {
 			const [hours, minutes, seconds] = durationInArray.map(e => Number(e));
 			const [oldHours, oldMinutes, oldSeconds] = currentSongDurationArray.map(e => Number(e));
@@ -91,6 +91,7 @@ module.exports = {
 			const oldHoursInSeconds = oldHours * 3600;
 			const oldMinutesInSeconds = oldMinutes * 60;
 			const oldPositionInMS = (oldHoursInSeconds + oldMinutesInSeconds + oldSeconds)*1000;
+			description = `Posição da música alterada para \`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}\`.`;
 			newPositionInMS = (hoursInSeconds + minutesInSeconds + seconds)*1000;
 
 			if (minutes > 59 || seconds > 59 || seconds < 0 || minutes < 0 || hours < 0)
@@ -106,8 +107,6 @@ module.exports = {
 					.setTitle('Nova posição inválida.')
 					.setDescription('A nova posição não pode ser maior que a duração da música atual.')
 				]})
-
-			description = `Posição da música alterada para \`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}\`.`
 		}
 
 		await queue.seek(newPositionInMS);

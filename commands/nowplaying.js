@@ -11,13 +11,12 @@ module.exports = {
         const queue = client.player.getQueue(interaction.guildId);
 
         if (queue && queue.playing && (interaction.member.voice.channel.id !== queue.connection.channel.id))
-        return await interaction.reply({embeds: [embed
-            .setColor('Red')
-            .setTitle('Não foi possível continuar.')
-            .setDescription(`Você precisa estar no mesmo canal de voz que o bot (${queue.connection.channel}) para utilizar este comando.`)
-        ]})
+            return await interaction.reply({embeds: [embed
+                .setColor('Red')
+                .setTitle('Não foi possível continuar.')
+                .setDescription(`Você precisa estar no mesmo canal de voz que o bot (${queue.connection.channel}) para utilizar este comando.`)
+            ]})
         
-
         client.player.showNowPlaying = !(client.player.showNowPlaying);
         await interaction.reply({embeds: [embed
             .setColor('Green')

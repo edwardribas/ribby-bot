@@ -17,12 +17,16 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
   try {
+	console.log(" ");
     console.log(`Realizando deploy dos comandos (${commands.length}).`);
 
     await rest.put(Routes.applicationCommands(clientID), {
 		body: commands
     })
-	.then(() => console.log('Deploy realizado com sucesso.'));
+	.then(() => {
+		console.log('Deploy realizado com sucesso.');
+		console.log(" ");
+	});
  
 	} catch (error) {
     	console.error(error);

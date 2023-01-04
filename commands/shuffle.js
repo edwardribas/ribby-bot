@@ -32,7 +32,6 @@ module.exports = {
             ]})
             
         queue.shuffle();
-            
         await interaction.reply({embeds: [embed
             .setColor('Green')
             .setTitle('Playlist randomizada!')

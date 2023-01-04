@@ -15,7 +15,7 @@ const client = new Client({
 
 client.commands = new Collection();
 client.player = new Player(client, {
-	showNowPlaying: false,
+	showNowPlaying: true,
 	ytdlOptions: {
         quality: "highestaudio",
         highWaterMark: 1 << 25
@@ -57,12 +57,7 @@ client.on('interactionCreate', async interaction => {
 	try {
 		await command.execute(interaction);
 	} catch(err) {
-		console.error(err);
-		await interaction.reply({embeds: [embed
-			.setColor('Red')
-			.setTitle('Algo deu errado.')
-			.setDescription('Ocorreu um erro e não foi possível executar o seu comando.')
-		]})
+		throw new Error(err);
 	}
 });
 
@@ -82,6 +77,5 @@ client.player.on('trackStart', (guild) => {
 		]})
 	}
 });
-
 
 client.login(token);

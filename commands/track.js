@@ -9,6 +9,8 @@ module.exports = {
         const { client } = interaction;
         const queue = client.player.getQueue(interaction.guildId);
         const embed = new EmbedBuilder();
+        const trackPosition = queue.createProgressBar()
+        const currentSong = queue && queue.current;
 
         if (!queue || !queue.playing)
             return await interaction.reply({embeds: [embed
@@ -24,12 +26,12 @@ module.exports = {
                 .setDescription(`Você precisa estar no mesmo canal de voz que o bot (${queue.connection.channel}) para utilizar este comando.`)
             ]})
         
-        const trackPosition = queue.createProgressBar()
-        const currentSong = queue.current;
+
         await interaction.reply({embeds: [embed
             .setColor('Green')
             .setTitle(`${currentSong.title}`)
-            .setDescription(trackPosition)
+            .setURL(currentSong.url)
+            .setDescription(`${trackPosition} \n\n Utilize **/seek HH:MM:SS** para mudar a posição da música.`)
             .setThumbnail(currentSong.thumbnail)
         ]})
     }

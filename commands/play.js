@@ -4,36 +4,22 @@ const { QueryType } = require("discord-player")
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('play')
-        .setDescription('Reproduz uma música do YouTube no seu canal de voz.')
-        .addSubcommand(sc => sc
-            .setName('pause')
-            .setDescription('Alterna a pausa da música atual.')
-        )
-        .addSubcommand(sc => sc
-            .setName('song')
-            .setDescription('Adiciona uma música à fila de reprodução.')
-            .addStringOption(option => option
-                .setName('url')
-                .setDescription('URL da música que você quer reproduzir')
-                .setRequired(true)
-            ),
-        )
-        .addSubcommand(sc => sc
-            .setName('playlist')
-            .setDescription('Adiciona uma playlist à fila de reprodução.')
-            .addStringOption(option => option
-                .setName('url')
-                .setDescription('URL da playlist que você quer reproduzir')
-                .setRequired(true)
-            ),
+        .setDescription('Adiciona uma música ou playlist à fila de reprodução.')
+        .addStringOption(op => op
+			.setName('search')
+			.setDescription('Nome ou link da música ou playlist que você quer tocar.')
+			.setRequired(true)
+			.setMinLength(2)
         ),
 
     async execute(interaction) {
         const embed = new EmbedBuilder();
         const { client } = interaction;
-        const subcommand = interaction.options.getSubcommand();
-        const isSong = subcommand === "song";
-        const isPause = subcommand === "pause";
+        const url = interaction.options.data[0].value;
+        const isSong = url.search(/(\/playlist\?|\/playlist\/)/) === -1;
+        const isYoutube = url.search(/(youtube|yt\.be)/) !== -1;
+		const isYoutubePlaylist = url.search(/(youtube|yt\.be|&list=|\?list=)/) !== -1; // its not being used currently
+		const queryType = isSong ? QueryType.AUTO : (isYoutube ? QueryType.YOUTUBE_PLAYLIST : QueryType.SPOTIFY_PLAYLIST)
 
         if (!interaction.member.voice.channel) {
             embed.setColor('Red');
@@ -41,41 +27,10 @@ module.exports = {
             embed.setDescription('Você precisa estar dentro de um canal de voz para executar este comando!');
             return await interaction.reply({ embeds: [embed] });
         }
-        
-        const queue = await client.player.createQueue(interaction.guild, {
-            metadata: {
-                channel: interaction.channel
-            }
-        });
-        
-        if (isPause){
-            if (!queue || !queue.playing) {
-                return await interaction.reply({embeds: [embed
-                    .setTitle('Não foi possível pausar/despausar.')
-                    .setDescription('O bot precisa estar tocando alguma coisa para poder utilizar essa funcionalidade.')
-                    .setColor('Red')
-                ]})
-            }
-            else {
-                const isPaused = queue.connection.paused;
-                if (!isPaused) {
-                    queue.setPaused(true)
-                    return await interaction.reply({embeds: [embed
-                        .setColor('Green')
-                        .setTitle('Música pausada.')
-                        .setDescription('Utilize o mesmo comando para despausar a música.')
-                    ]})
-                } else {
-                    queue.setPaused(false);
-                    return await interaction.reply({embeds: [embed
-                        .setColor('Green')
-                        .setTitle('Música despausada.')
-                        .setDescription('Agora você pode voltar a ouvir sua música.')
-                    ]})
 
-                }
-            }
-        }
+        const queue = await client.player.createQueue(interaction.guild, {
+            metadata: { channel: interaction.channel }
+        });
 
         if (queue.playing && (interaction.member.voice.channel.id !== queue.connection.channel.id))
             return await interaction.reply({embeds: [embed
@@ -83,10 +38,6 @@ module.exports = {
                 .setTitle('Não foi possível continuar.')
                 .setDescription(`Você precisa estar no mesmo canal de voz que o bot (${queue.connection.channel}) para utilizar este comando.`)
             ]})
-         
-        const [{value: url}] = interaction.options.data[0].options;
-        const isYoutube = url.search(/(youtube|yt\.be)/) !== -1;
-        const queryType = isSong ? QueryType.AUTO : (isYoutube ? QueryType.YOUTUBE_PLAYLIST : QueryType.SPOTIFY_PLAYLIST)
 
         const result = await client.player.search(url, {
             requestedBy: interaction.user,
@@ -100,24 +51,20 @@ module.exports = {
                 .setDescription("Não foi possível encontrar uma música com o link fornecido.")
             ]})
 
+		isSong
+			? await queue.addTrack(result.tracks[0])
+			: await queue.addTracks(result.tracks);
 
-        let song;
-        if (isSong) {
-            song = result.tracks[0];
-            await queue.addTrack(song);
-        } else {
-            await queue.addTracks(result.tracks)
-        }
+        if (!queue.connection) await queue.connect(interaction.member.voice.channel);
+        if (!queue.playing) await queue.play();
 
-        if (!queue.connection) await queue.connect(interaction.member.voice.channel)
-        if (!queue.playing) await queue.play()
-        
-        if (isSong) {
+		if (isSong) {
+			const song = result.tracks[0];
             return await interaction.reply({embeds: [embed
                 .setColor('Green')
                 .setTitle(`Música adicionada com sucesso.`)
                 .setDescription(`
-                    **${song.title}** foi adicionada à posição **#${queue.tracks.length === 0 ? 1 : queue.tracks.length + 1}** da playlist.
+                    **${song.title}** foi adicionada à posição **#${queue.tracks.length === 0 ? 1 : queue.tracks.length}** da playlist.
                 `)
                 .setFooter({ text: `Duração: ${song.duration}`})
                 .setURL(song.url)
